@@ -15,19 +15,49 @@
 #make sure that this file and the "peakpicking2.cpp" file are in the same folder, otherwise adjust the file path in line 22
 
 #please adjust the peak picking parameters in lines 106-117
-
+library("optparse")
 library(xcms)
 library(Rcpp)
 library(RcppArmadillo)
 sourceCpp("peakpicking2.cpp")
 
+option_list = list(
+  make_option(c("--mz_min"), type="double", default=200, 
+              help="minimum m/z"),
+  make_option(c("--mz_max"), type="double", default=2000, 
+              help="maximum m/z"),
+  make_option(c("--mz_step"), type="double", default=0.02, 
+              help="m/z bin size"),
+  make_option(c("--rt_min"), type="double", default=0, 
+              help="minimum RT in seconds"),
+  make_option(c("--rt_max"), type="double", default=4800, 
+              help="maximum RT in seconds"),
+  make_option(c("--SN"), type="double", default=3, 
+              help="signal/noise threshold"),
+  make_option(c("--int_threshold"), type="double", default=1, 
+              help="intensity threshold"),
+  make_option(c("--peakwidth_min"), type="integer", default=5, 
+              help="minimum peakwidth in seconds"),
+  make_option(c("--peakwidth_max"), type="integer", default=300, 
+              help="maximum peakwidth in seconds"),
+  make_option(c("--maxPeaksPerSignal"), type="integer", default=10, 
+              help="signals containing more consecutive maxima of similar size than this threshold will be regarded as noise"),
+  make_option(c("--precursormzTol"), type="double", default=20, 
+              help="mass tolerance (ppm) to find ms2"),
+  make_option(c("--linear_binning"), type="logical", default=TRUE, 
+              help="TRUE: fixed mz_step, FALSE: non-linear mz_step is used"),
+  make_option(c("-i", "--input"), type="character", 
+              help="input mzml file name"),
+  make_option(c("-o", "--out"), type="character", default="peaks.txt", 
+              help="output file name [default= %default]", metavar="character")
+)
 
+opt_parser = OptionParser(option_list=option_list)
+opt = parse_args(opt_parser)
 
 #open .mzML or .mzXML using xcms: 
-dataFile <- file.choose()
+dataFile <- opt$input
 rawData <- xcmsRaw(dataFile,includeMSn=TRUE)
-
-
 
 peakpicking_SingleXIC <- function(mz, rawData, mz_step,rt_min_scan,rt_max_scan,sn,int_threshold,peakwidth_min,peakwidth_max,maxPeaksPerSignal,precursormzTol){
   
@@ -104,18 +134,18 @@ peakPicking <- function(rawData) {
   peaklist <- NULL
   
   #peak picking parameters (to be adjusted individually):
-  mz_min <- 100 #minimum m/z
-  mz_max <- 1200 #maximum m/z
-  mz_step <<- 0.02 #m/z bin size
-  rt_min <- 120 #minimum retention time in seconds
-  rt_max <- 1200 #maximum retention time in seconds
-  sn <- 3 #signal/noise threshold
-  int_threshold <- 1 #intensity threshold
-  peakwidth_min <- 5 #minimum peak width in seconds
-  peakwidth_max <- 60 #maximum peak width in seconds
-  maxPeaksPerSignal <- 10 #signals containing more consecutive maxima of similar size than this
+  mz_min <- opt$mz_min #minimum m/z
+  mz_max <- opt$mz_max #maximum m/z
+  mz_step <<- opt$mz_step
+  rt_min <- opt$rt_min #minimum retention time in seconds
+  rt_max <- opt$rt_max #maximum retention time in seconds
+  sn <- opt$SN #signal/noise threshold
+  int_threshold <- opt$int_threshold #intensity threshold
+  peakwidth_min <- opt$peakwidth_min #minimum peak width in seconds
+  peakwidth_max <- opt$peakwidth_max #maximum peak width in seconds
+  maxPeaksPerSignal <- opt$maxPeaksPerSignal #signals containing more consecutive maxima of similar size than this
   #threshold will be regarded as noise
-  precursormzTol <- 20 #mass tolerance (ppm) to find ms2
+  precursormzTol <- opt$precursormzTol #mass tolerance (ppm) to find ms2
   
   
   
@@ -125,7 +155,7 @@ peakPicking <- function(rawData) {
   if (is.infinite(rt_min_scan)) rt_min_scan <- 1
   if (is.infinite(rt_max_scan)) rt_max_scan <- length(daten@scantime)
   
-  linear_binning <- TRUE #TRUE: fixed mz_step (line 101) is used. Check "deriveoptimummzstep(rawData,quantiles)", e.g. with quantiles=0.9
+  linear_binning <- opt$linear_binning #TRUE: fixed mz_step (line 101) is used. Check "deriveoptimummzstep(rawData,quantiles)", e.g. with quantiles=0.9
                          #FALSE: non-linear mz_step is used, e.g. as a function of m/z. Adjust "getmzbins" function accordingly.
   
   if (linear_binning == TRUE) {
@@ -147,7 +177,7 @@ peakPicking <- function(rawData) {
   
  
   
-  colnames(peaklist) <- c("mz","RT","Intensity","XIC_Intensity","Scan","LeftendRT","RightendRT","Leftendscan","Rightendscan","NoiseScans", "NoiseDeviation","Area","FWHM_left","FWHM_right","Baseline","XICStartMass","MS2scan")
+  colnames(peaklist) <- c("mz","RT","intensity","XIC_Intensity","Scan","rt_start","rt_end","Leftendscan","Rightendscan","NoiseScans", "NoiseDeviation","Area","FWHM_left","FWHM_right","Baseline","XICStartMass","MS2scan")
   
   peaklist <- peaklist[order(peaklist[,1]),]
   
@@ -160,6 +190,9 @@ peakPicking <- function(rawData) {
 system.time({
   peaklist <- peakPicking(rawData)
 })
+
+#save data
+write.table(peaklist, file = opt$out, sep = '\t')
 
 #Plot a random feature from the peaklist:
 peaknumber <- sample(nrow(peaklist),1)
