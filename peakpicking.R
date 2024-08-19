@@ -19,7 +19,7 @@ library("optparse")
 library(xcms)
 library(Rcpp)
 library(RcppArmadillo)
-sourceCpp("peakpicking2.cpp")
+sourceCpp("/osfd/peakpicking2.cpp")
 
 option_list = list(
   make_option(c("--mz_min"), type="double", default=200, 
@@ -193,29 +193,3 @@ system.time({
 
 #save data
 write.table(peaklist, file = opt$out, sep = '\t')
-
-#Plot a random feature from the peaklist:
-peaknumber <- sample(nrow(peaklist),1)
-
-noiseRTleft <- rawData@scantime[peaklist$Leftendscan[peaknumber]-(peaklist$Rightendscan[peaknumber]-peaklist$Leftendscan[peaknumber])*10]/60
-noiseRTright <- rawData@scantime[peaklist$Rightendscan[peaknumber]+(peaklist$Rightendscan[peaknumber]-peaklist$Leftendscan[peaknumber])*10]/60
-if (is.na(noiseRTleft)) noiseRTleft <- 0
-if (length(noiseRTleft) > 1) noiseRTleft <- 0
-if (is.na(noiseRTright)) noiseRTright <- max(rawData@scantime)/60
-if (length(noiseRTright) > 1) noiseRTright <- 0
-XIC <- rawEIC(rawData,mzrange=c(peaklist$mz[peaknumber]-mz_step/2,peaklist$mz[peaknumber]+mz_step/2))
-
-plot(x=rawData@scantime/60,y=XIC$intensity, xlim = c(noiseRTleft,noiseRTright), ylim = c(0,(peaklist$XIC_Intensity[peaknumber]+peaklist$Baseline[peaknumber])*1.1),type = "l", main = paste0("XIC of m/z = ",round(peaklist$mz[peaknumber],4)," (",round(peaklist$mz[peaknumber]-mz_step/2,4),"-",round(peaklist$mz[peaknumber]+mz_step/2,4),")"),xlab="RT / min",ylab="Intensity",xaxs = "i",yaxs="i")
-  
-lines(x = c(peaklist$LeftendRT[peaknumber]/60,peaklist$LeftendRT[peaknumber]/60), y = c(peaklist$Baseline[peaknumber],(peaklist$XIC_Intensity[peaknumber])+peaklist$Baseline[peaknumber]), type = "l", col = "red")
-lines(x = c(peaklist$RightendRT[peaknumber]/60,peaklist$RightendRT[peaknumber]/60), y = c(peaklist$Baseline[peaknumber],(peaklist$XIC_Intensity[peaknumber])+peaklist$Baseline[peaknumber]), type = "l", col = "red")
-text(x = peaklist$RightendRT[peaknumber]/60, y = peaklist$XIC_Intensity[peaknumber]*0.9, labels = "Peak boundaries", col = "red", pos = 4)
-lines(x = c(noiseRTleft,noiseRTright), y=c(peaklist$Baseline[peaknumber],peaklist$Baseline[peaknumber]), type = "l", col = "red")
-text(x = noiseRTleft, y = peaklist$Baseline[peaknumber], labels = "Baseline", col = "red", adj = c(0,0))
-lines(x = c(noiseRTleft,noiseRTright), y=c(peaklist$Baseline[peaknumber]+peaklist$NoiseDeviation[peaknumber]/2,peaklist$Baseline[peaknumber]+peaklist$NoiseDeviation[peaknumber]/2), type = "l", col = "blue")
-lines(x = c(noiseRTleft,noiseRTright), y=c(peaklist$Baseline[peaknumber]-peaklist$NoiseDeviation[peaknumber]/2,peaklist$Baseline[peaknumber]-peaklist$NoiseDeviation[peaknumber]/2), type = "l", col = "blue")
-text(x = noiseRTright, y = peaklist$Baseline[peaknumber]+peaklist$NoiseDeviation[peaknumber]/2, labels = "Noise", col = "blue", adj = c(1,0))
-lines(x = c(peaklist$FWHM_left[peaknumber]/60,peaklist$FWHM_left[peaknumber]/60), y = c(peaklist$Baseline[peaknumber],(peaklist$XIC_Intensity[peaknumber]/2)+peaklist$Baseline[peaknumber]), type = "l", col = "green")
-lines(x = c(peaklist$FWHM_right[peaknumber]/60,peaklist$FWHM_right[peaknumber]/60), y = c(peaklist$Baseline[peaknumber],(peaklist$XIC_Intensity[peaknumber]/2)+peaklist$Baseline[peaknumber]), type = "l", col = "green")
-text(x = peaklist$FWHM_right[peaknumber]/60, y = peaklist$XIC_Intensity[peaknumber]/2, labels = "FWHM", col = "green", pos = 4)
-  
