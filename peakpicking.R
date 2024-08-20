@@ -192,4 +192,4 @@ system.time({
 })
 
 #save data
-write.table(peaklist, file = opt$out, sep = '\t')
+write.table(peaklist, file = opt$out, sep = '\t', row.names = FALSE, quote = FALSE)
